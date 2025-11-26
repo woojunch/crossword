@@ -33,7 +33,7 @@
             width: 60px;
             height: 60px;
             background-color: #fff;
-            position: relative; /* 번호 배치를 위해 relative 설정 */
+            position: relative;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -49,14 +49,13 @@
             color: transparent;
         }
 
-        /* 문제 번호 스타일 */
         .number-label {
             position: absolute;
             top: 2px;
             left: 4px;
             font-size: 11px;
             font-weight: normal;
-            color: #d9534f; /* 붉은색 계열로 강조 */
+            color: #d9534f;
             line-height: 1;
             z-index: 10;
         }
@@ -84,26 +83,23 @@
             return urlParams.get(param);
         }
 
-        // 그리드에서 단어의 시작 위치(행, 열)를 찾는 함수
+        // 단어 위치 찾기 함수
         function findWordPosition(gridData, word, direction) {
             const rows = 7;
             const cols = 7;
             
             for(let r = 0; r < rows; r++) {
                 for(let c = 0; c < cols; c++) {
-                    // 단어가 그리드 범위를 벗어나거나 첫 글자가 안 맞으면 패스
                     if (direction === 'across' && c + word.length > cols) continue;
                     if (direction === 'down' && r + word.length > rows) continue;
 
                     let match = true;
                     for(let i = 0; i < word.length; i++) {
-                        // 가로/세로 방향에 따라 비교할 셀 좌표 계산
                         const rr = r + (direction === 'down' ? i : 0);
                         const cc = c + (direction === 'across' ? i : 0);
                         
-                        // 공백 등을 제거하고 글자만 비교
-                        const cellChar = gridData[rr][cc];
-                        if (cellChar !== word[i]) {
+                        // 그리드 데이터와 단어 철자 비교
+                        if (gridData[rr][cc] !== word[i]) {
                             match = false;
                             break;
                         }
@@ -116,7 +112,7 @@
 
         function renderGrid() {
             const gridStr = getQueryParam('grid');
-            const wordsStr = getQueryParam('words'); // words 파라미터 추가
+            const wordsStr = getQueryParam('words');
             const board = document.getElementById('board');
             const status = document.getElementById('status');
 
@@ -127,33 +123,39 @@
             }
 
             try {
-                // 데이터 파싱
+                // 1. 그리드 데이터 파싱 (개선됨)
+                // 작은따옴표를 큰따옴표로 바꿔 JSON 파싱 후,
+                // 각 행의 문자열에서 '모든 공백을 제거'하고 '글자 단위로 분리'합니다.
                 const gridData = JSON.parse(gridStr.replace(/'/g, '"'))
-                                     .map(row => row.trim().split(/\s+/)); // 2D 배열로 변환
+                                     .map(row => row.replace(/\s+/g, '').split('')); 
                 
-                // 단어 목록 파싱 (wordsStr이 있으면 사용)
+                // 2. 단어 데이터 파싱
                 let wordData = { across: [], down: [] };
                 if (wordsStr) {
-                    wordData = JSON.parse(wordsStr); 
+                    // wordsStr이 있으면 파싱, 없으면 빈 객체 유지
+                    try {
+                        wordData = JSON.parse(wordsStr);
+                    } catch (e) {
+                        console.warn("단어 데이터 파싱 실패", e);
+                    }
                 }
 
-                // 번호 매핑 정보를 저장할 배열 (7x7)
+                // 3. 번호 매핑 (1번부터 순차적으로)
                 const numberMap = Array.from({ length: 7 }, () => Array(7).fill(""));
-
-                // 1. 가로 문제 번호 매기기 (1번 ~ N번)
                 let currentNumber = 1;
+
+                // 가로 문제 번호 찾기
                 if (wordData.across) {
                     wordData.across.forEach(word => {
                         const pos = findWordPosition(gridData, word, 'across');
                         if (pos) {
-                            // 기존 번호가 있으면 콤마로 연결 (예: "1, 5")
                             numberMap[pos.r][pos.c] += numberMap[pos.r][pos.c] ? `, ${currentNumber}` : `${currentNumber}`;
                         }
                         currentNumber++;
                     });
                 }
 
-                // 2. 세로 문제 번호 매기기 (N+1번 ~ M번)
+                // 세로 문제 번호 찾기
                 if (wordData.down) {
                     wordData.down.forEach(word => {
                         const pos = findWordPosition(gridData, word, 'down');
@@ -164,40 +166,6 @@
                     });
                 }
 
-                // 그리드 그리기
+                // 4. 화면 렌더링
                 board.innerHTML = '';
-                gridData.forEach((row, r) => {
-                    row.forEach((char, c) => {
-                        const cell = document.createElement('div');
-                        cell.className = 'cell';
-
-                        if (char === '#') {
-                            cell.className += ' inactive';
-                        } else {
-                            cell.textContent = char;
-                            
-                            // 해당 칸에 번호가 있다면 추가
-                            if (numberMap[r][c]) {
-                                const numSpan = document.createElement('span');
-                                numSpan.className = 'number-label';
-                                numSpan.textContent = numberMap[r][c];
-                                cell.appendChild(numSpan);
-                            }
-                        }
-                        board.appendChild(cell);
-                    });
-                });
-
-                status.style.display = 'none';
-                board.style.display = 'grid';
-
-            } catch (error) {
-                console.error(error);
-                status.innerText = "데이터 처리 중 오류가 발생했습니다. URL 형식을 확인해주세요.";
-            }
-        }
-
-        window.onload = renderGrid;
-    </script>
-</body>
-</html>
+                gridData.forEach((row,
