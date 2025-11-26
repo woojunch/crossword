@@ -168,4 +168,38 @@
 
                 // 4. 화면 렌더링
                 board.innerHTML = '';
-                gridData.forEach((row,
+                gridData.forEach((row, r) => {
+                    row.forEach((char, c) => {
+                        const cell = document.createElement('div');
+                        cell.className = 'cell';
+
+                        if (char === '#') {
+                            cell.className += ' inactive';
+                        } else {
+                            cell.textContent = char;
+                            
+                            // 번호 표시
+                            if (numberMap[r][c]) {
+                                const numSpan = document.createElement('span');
+                                numSpan.className = 'number-label';
+                                numSpan.textContent = numberMap[r][c];
+                                cell.appendChild(numSpan);
+                            }
+                        }
+                        board.appendChild(cell);
+                    });
+                });
+
+                status.style.display = 'none';
+                board.style.display = 'grid';
+
+            } catch (error) {
+                console.error(error);
+                status.innerText = "데이터 처리 중 오류가 발생했습니다. (콘솔 확인 필요)";
+            }
+        }
+
+        window.onload = renderGrid;
+    </script>
+</body>
+</html>
