@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>7x7 Crossword Grid</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f2f5;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .crossword-board {
+            display: grid;
+            grid-template-columns: repeat(7, 60px); /* 7열 고정 */
+            grid-template-rows: repeat(7, 60px);    /* 7행 고정 */
+            gap: 2px;
+            padding: 5px;
+            background-color: #333;
+            border: 3px solid #333;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .cell {
+            width: 60px;
+            height: 60px;
+            background-color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #333;
+            user-select: none;
+        }
+
+        /* 비활성화된 칸 (#) 스타일 */
+        .cell.inactive {
+            background-color: #222;
+            color: transparent;
+        }
+
+        /* 메시지 박스 */
+        .message {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #fff;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Crossword Puzzle</h1>
+    <div id="board" class="crossword-board"></div>
+    <div id="status" class="message">데이터를 불러오는 중...</div>
+
+    <script>
+        // URL에서 쿼리 파라미터 값을 가져오는 함수
+        function getQueryParam(param) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(param);
+        }
+
+        // 그리드 렌더링 함수
+        function renderGrid() {
+            const gridStr = getQueryParam('grid');
+            const board = document.getElementById('board');
+            const status = document.getElementById('status');
+
+            if (!gridStr) {
+                status.innerHTML = "URL에 <b>?grid=</b> 파라미터가 없습니다.<br>예: crossword.html?grid=['A B...', ...]";
+                board.style.display = 'none';
+                return;
+            }
+
+            try {
+                // Python 리스트 문자열(싱글 쿼트)을 JSON 형식(더블 쿼트)으로 변환하여 파싱
+                // 예: "['A #', 'B C']" -> '["A #", "B C"]'
+                const jsonStr = gridStr.replace(/'/g, '"');
+                const gridData = JSON.parse(jsonStr);
+
+                // 기존 그리드 초기화
+                board.innerHTML = '';
+
+                // 데이터 순회하며 셀 생성
+                gridData.forEach((rowStr, rowIndex) => {
+                    // 공백으로 문자 분리 (연속된 공백 처리 포함)
+                    const chars = rowStr.trim().split(/\s+/);
+                    
+                    chars.forEach((char, colIndex) => {
+                        const cell = document.createElement('div');
+                        cell.className = 'cell';
+
+                        if (char === '#') {
+                            cell.className += ' inactive';
+                        } else {
+                            cell.textContent = char; // 알파벳 표시
+                        }
+
+                        board.appendChild(cell);
+                    });
+                });
+
+                status.style.display = 'none'; // 성공 시 메시지 숨김
+                board.style.display = 'grid';
+
+            } catch (error) {
+                console.error(error);
+                status.innerText = "데이터 파싱 중 오류가 발생했습니다. 콘솔을 확인해주세요.";
+            }
+        }
+
+        // 페이지 로드 시 실행
+        window.onload = renderGrid;
+    </script>
+</body>
+</html>
