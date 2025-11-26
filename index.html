@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>7x7 Crossword with Numbers</title>
+    <title>7x7 Colorful Crossword</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -20,8 +20,8 @@
 
         .crossword-board {
             display: grid;
-            grid-template-columns: repeat(7, 60px);
-            grid-template-rows: repeat(7, 60px);
+            grid-template-columns: repeat(7, 65px); /* 셀 크기 약간 키움 */
+            grid-template-rows: repeat(7, 65px);
             gap: 2px;
             padding: 5px;
             background-color: #333;
@@ -30,8 +30,8 @@
         }
 
         .cell {
-            width: 60px;
-            height: 60px;
+            width: 65px;
+            height: 65px;
             background-color: #fff;
             position: relative;
             display: flex;
@@ -55,9 +55,12 @@
             left: 4px;
             font-size: 11px;
             font-weight: normal;
-            color: #d9534f;
+            color: #333; /* 배경색이 들어가므로 검은색으로 변경 */
             line-height: 1;
             z-index: 10;
+            background-color: rgba(255,255,255,0.7); /* 가독성을 위해 배경 반투명 추가 */
+            padding: 1px 3px;
+            border-radius: 3px;
         }
 
         .message {
@@ -78,6 +81,13 @@
     <div id="status" class="message">데이터를 불러오는 중...</div>
 
     <script>
+        // 파스텔 톤 색상 팔레트 (단어별 하이라이트용)
+        const PALETTE = [
+            "#FFB3BA", "#FFDFBA", "#FFFFBA", "#BAFFC9", "#BAE1FF", 
+            "#E2F0CB", "#FFDAC1", "#FF9AA2", "#B5EAD7", "#C7CEEA",
+            "#F8C8DC", "#FFCCF9", "#D4F0F0", "#D7E8DE", "#FFF4E6"
+        ];
+
         function getQueryParam(param) {
             const urlParams = new URLSearchParams(window.location.search);
             return urlParams.get(param);
@@ -98,7 +108,6 @@
                         const rr = r + (direction === 'down' ? i : 0);
                         const cc = c + (direction === 'across' ? i : 0);
                         
-                        // 그리드 데이터와 단어 철자 비교
                         if (gridData[rr][cc] !== word[i]) {
                             match = false;
                             break;
@@ -123,48 +132,49 @@
             }
 
             try {
-                // 1. 그리드 데이터 파싱 (개선됨)
-                // 작은따옴표를 큰따옴표로 바꿔 JSON 파싱 후,
-                // 각 행의 문자열에서 '모든 공백을 제거'하고 '글자 단위로 분리'합니다.
+                // 1. 그리드 데이터 파싱 (공백 제거 로직 포함)
                 const gridData = JSON.parse(gridStr.replace(/'/g, '"'))
                                      .map(row => row.replace(/\s+/g, '').split('')); 
                 
                 // 2. 단어 데이터 파싱
                 let wordData = { across: [], down: [] };
                 if (wordsStr) {
-                    // wordsStr이 있으면 파싱, 없으면 빈 객체 유지
-                    try {
-                        wordData = JSON.parse(wordsStr);
-                    } catch (e) {
-                        console.warn("단어 데이터 파싱 실패", e);
-                    }
+                    try { wordData = JSON.parse(wordsStr); } catch (e) {}
                 }
 
-                // 3. 번호 매핑 (1번부터 순차적으로)
-                const numberMap = Array.from({ length: 7 }, () => Array(7).fill(""));
+                // 3. 번호 및 색상 매핑 준비
+                // cellInfo[r][c] = { numbers: [], colors: [] }
+                const cellInfo = Array.from({ length: 7 }, () => 
+                    Array.from({ length: 7 }, () => ({ numbers: [], colors: [] }))
+                );
+
                 let currentNumber = 1;
+                let colorIndex = 0;
 
-                // 가로 문제 번호 찾기
-                if (wordData.across) {
-                    wordData.across.forEach(word => {
-                        const pos = findWordPosition(gridData, word, 'across');
+                // 공통 처리 함수 (방향별)
+                const processWords = (words, direction) => {
+                    if (!words) return;
+                    words.forEach(word => {
+                        const pos = findWordPosition(gridData, word, direction);
                         if (pos) {
-                            numberMap[pos.r][pos.c] += numberMap[pos.r][pos.c] ? `, ${currentNumber}` : `${currentNumber}`;
+                            // 시작 위치에 문제 번호 저장
+                            cellInfo[pos.r][pos.c].numbers.push(currentNumber);
+                            
+                            // 해당 단어가 차지하는 모든 셀에 색상 저장
+                            const color = PALETTE[colorIndex % PALETTE.length];
+                            for(let i = 0; i < word.length; i++) {
+                                const rr = pos.r + (direction === 'down' ? i : 0);
+                                const cc = pos.c + (direction === 'across' ? i : 0);
+                                cellInfo[rr][cc].colors.push(color);
+                            }
+                            colorIndex++;
                         }
                         currentNumber++;
                     });
-                }
+                };
 
-                // 세로 문제 번호 찾기
-                if (wordData.down) {
-                    wordData.down.forEach(word => {
-                        const pos = findWordPosition(gridData, word, 'down');
-                        if (pos) {
-                            numberMap[pos.r][pos.c] += numberMap[pos.r][pos.c] ? `, ${currentNumber}` : `${currentNumber}`;
-                        }
-                        currentNumber++;
-                    });
-                }
+                processWords(wordData.across, 'across');
+                processWords(wordData.down, 'down');
 
                 // 4. 화면 렌더링
                 board.innerHTML = '';
@@ -177,12 +187,25 @@
                             cell.className += ' inactive';
                         } else {
                             cell.textContent = char;
-                            
+                            const info = cellInfo[r][c];
+
+                            // 배경색 적용
+                            if (info.colors.length === 1) {
+                                // 색상이 하나면 단색
+                                cell.style.backgroundColor = info.colors[0];
+                            } else if (info.colors.length > 1) {
+                                // 색상이 겹치면(교차점) 대각선 그라데이션
+                                // 첫 번째 색상과 마지막 색상을 섞어서 표현
+                                const c1 = info.colors[0];
+                                const c2 = info.colors[info.colors.length - 1];
+                                cell.style.background = `linear-gradient(135deg, ${c1} 50%, ${c2} 50%)`;
+                            }
+
                             // 번호 표시
-                            if (numberMap[r][c]) {
+                            if (info.numbers.length > 0) {
                                 const numSpan = document.createElement('span');
                                 numSpan.className = 'number-label';
-                                numSpan.textContent = numberMap[r][c];
+                                numSpan.textContent = info.numbers.join(', ');
                                 cell.appendChild(numSpan);
                             }
                         }
@@ -195,7 +218,7 @@
 
             } catch (error) {
                 console.error(error);
-                status.innerText = "데이터 처리 중 오류가 발생했습니다. (콘솔 확인 필요)";
+                status.innerText = "데이터 처리 중 오류가 발생했습니다.";
             }
         }
 
